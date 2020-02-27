@@ -7,7 +7,7 @@ This is a python tool for Windows that can be run from the command line to creat
 - cmd window
 - go to folder containing the .py file
 - type 'python Verisense_Raw_Acc_QC_report_by_week.py' in cmd window
-- then enter path to folder (using either '/' or '\\') in cmd window
+- then enter path to folder (using either '/' or '\\\') in cmd window
 - pdf file(s) will be created in path folder with visualizations
 
 
