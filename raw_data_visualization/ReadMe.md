@@ -14,7 +14,7 @@ This is a python tool for Windows that can be run from the command line to creat
 ### Dependencies
 - python (64-bit)
 - following python packages:
-	- numpy, pandas, matplotlib
+	- numpy, pandas, matplotlib and pathlib
   - 'python -m pip install numpy' to install
 
 ### Notes

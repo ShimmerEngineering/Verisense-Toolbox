@@ -8,6 +8,7 @@ import collections
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 # %matplotlib inline
 
 
@@ -412,10 +413,10 @@ if __name__ == "__main__":
     verbose = True
 
     if verbose:
-        print("This is a script to analyze the Verisense Raw Data files \n")
+        print("Verisense Raw Data Visualization Tool v0.00.001")
         print('ENTER FOLDER LOCATION HERE')
 
-    folder_to_analyze = input("Folder: ")
+    folder_to_analyze = input(Path("Folder: "))
 
     # folder_to_analyze = 'C:/Users/TRich/Downloads/ParsedRu-20200301T203534Z-001/ParsedRu
     #folder_to_analyze = 'C:/Users/TRich/Documents/ParsedFiles/ParsedFiles3'
