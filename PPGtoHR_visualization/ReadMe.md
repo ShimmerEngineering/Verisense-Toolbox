@@ -2,9 +2,9 @@
 
 There are two scripts available in this repo for analyzing Verisense PPG to HR data:
 1. Visualize Raw and Processed Results
-  - Raw_and_Processed_PPG_viz.py  
+    - Raw_and_Processed_PPG_viz.py  
 2. Visualize Processed Results
-  - Processed_PPG_viz.py
+    - Processed_PPG_viz.py
 
 ## How to Run: Raw_and_Processed_PPG_viz.py
 - go to command window
