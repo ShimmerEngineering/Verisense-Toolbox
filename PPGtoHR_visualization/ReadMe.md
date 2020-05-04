@@ -13,7 +13,10 @@ There are two scripts available in this repo for analyzing Verisense PPG to HR d
 - enter the file path (using forward slashes) to the raw data (ParsedFiles)
 - script will create a pdf in the data folder with graphs
   - Raw PPG plotted with HR values from the algorithm
+  - HR coverage in % reported on graph
+  - Mean HR [bpm] reported on graph as well
 - 4 graphs per page
+- script will also create a csv file in the raw data folder with performance metrics on each snippet (HR coverage and mean-HR)
 
 
 ## How to Run: Processed_PPG_viz.py
