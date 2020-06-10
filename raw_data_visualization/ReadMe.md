@@ -28,11 +28,14 @@ There is a separate tool for viewing raw gyroscope data from Verisense. It is ru
 For each week (Mon - Sun) that contains data a separate pdf report is generated. This is what it looks like.
 #### Title Page:
 ![alt text](figs/title_page.jpg)
-#### Accel Description Table:
-![alt text](figs/accel_description_table.jpg)
 #### File Information Table:
 ![alt text](figs/file_info_table.jpg)
-#### Histogram
-![alt text](figs/histogram.jpg)
-#### Raw Data
+#### Raw Data:
 ![alt text](figs/raw_data.jpg)
+
+### Depreciated Output
+This data is no longer being generated in the pdf reports. Code is still available, so it easy to turn back on if necessary.
+#### Accel Description Table:
+![alt text](figs/accel_description_table.jpg)
+#### Histogram:
+![alt text](figs/histogram.jpg)
