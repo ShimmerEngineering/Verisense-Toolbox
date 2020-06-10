@@ -12,12 +12,14 @@ from pathlib import Path
 # %matplotlib inline
 
 
-def pull_information(files_list):
+def pull_information(files_list, week):
+    print("\n\nThe week we are currently processing: " + str(week))
     dfByWeek = []
     dataByWeek = []
     startByWeek = []
     fileByWeek = []
     lenByWeek = []
+    hertzByWeek = []
     file_id = []
     raw_file_count = 0
 
@@ -25,6 +27,14 @@ def pull_information(files_list):
         if x[0:13] not in file_id:  # check that it's not a repeat
             raw_file_count += 1
             df_head = pd.read_csv(folder_to_analyze+x, nrows=7, names=('he'))
+
+            startTime = df_head.h[3][47:55]
+            endTime = df_head.h[4][35:43]
+            startDate = df_head.h[3][36:47]
+            endDate = df_head.h[4][24:35]
+            hertz = df_head.h[6].split("Rate = ", 2)[1].split(".")[0]
+            #freq = round(1000 / int(hertz))
+            freq = round(1000000 / int(hertz))
             if raw_file_count == 1:
                 # parse out header data from the first file
                 deviceName = df_head.h[0][16:29]
@@ -32,42 +42,71 @@ def pull_information(files_list):
                 firmwareVersion = df_head.h[0][69:78]
                 sample_rate = df_head.h[6][22:29]
                 sensor_range = df_head.h[6][39:44]
-                time = df_head.h[3][47:55]
-                date = df_head.h[3][36:47]
-                # print(date)
-                #print(pd.Timestamp(float(df_head.h[5].split("= ")[1]), unit="ms").month != pd.Timestamp(year=int(date[6:10]),month=int(date[0:2]),day=int(date[3:5]),hour=int(time[0:2]),minute=int(time[3:5]),second=int(time[6:8])).month)
-                firstStart = date + " " + time
-            time = df_head.h[3][47:55]
-            date = df_head.h[3][36:47]
+                firstStart = startDate + " " + startTime
+
 
             try:
-                startDate = pd.Timestamp(year=int(date[6:10]), month=int(date[3:5]), day=int(
-                    date[0:2]), hour=int(time[0:2]), minute=int(time[3:5]), second=int(time[6:8]))
-            except ValueError:
-                startDate = pd.Timestamp(year=int(date[6:10]), month=int(date[0:2]), day=int(
-                    date[3:5]), hour=int(time[0:2]), minute=int(time[3:5]), second=int(time[6:8]))
+                startString = startDate[6:10] + "-" + startDate[3:5] + "-" + startDate[0:2]
+                endString = endDate[6:10] + "-" + endDate[3:5] + "-" + endDate[0:2]
+                startDate = pd.Timestamp(year=int(startDate[6:10]), month=int(startDate[3:5]), day=int(
+                    startDate[0:2]), hour=int(startTime[0:2]), minute=int(startTime[3:5]), second=int(startTime[6:8]))
+                endDate = pd.Timestamp(year=int(endDate[6:10]), month=int(endDate[3:5]), day=int(
+                    endDate[0:2]), hour=int(endTime[0:2]), minute=int(endTime[3:5]), second=int(endTime[6:8]))
 
-            # file_start.append(startDate)
+            except ValueError:
+                startString = startDate[6:10] + "-" + startDate[0:2] + "-" + startDate[3:5]
+                endString = endDate[6:10] + "-" + endDate[0:2] + "-" + endDate[3:5]
+                startDate = pd.Timestamp(year=int(startDate[6:10]), month=int(startDate[0:2]), day=int(
+                    startDate[3:5]), hour=int(startTime[0:2]), minute=int(startTime[3:5]), second=int(startTime[6:8]))
+                endDate = pd.Timestamp(year=int(endDate[6:10]), month=int(endDate[0:2]), day=int(
+                    endDate[3:5]), hour=int(endTime[0:2]), minute=int(endTime[3:5]), second=int(endTime[6:8]))
+
+
+
+            if startDate.week != week:
+                file_data = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                file_ts = pd.date_range(startDate, freq=str(freq)+"us", periods=len(file_data))
+                df = pd.DataFrame()
+                df = file_data.set_index(file_ts)
+                splitDF = df[endString:endString]
+                startDate = endDate
+                df_tmp = file_data[acc_channel]
+
+
+
+               # print("The week we are currently processing: " + str(week))
+              # print("The week that this file started: " + str(startDate.week))
+            elif endDate.week != week:
+                file_data = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                file_ts = pd.date_range(startDate, freq=str(freq)+"us", periods=len(file_data))
+                df = pd.DataFrame()
+                df = file_data.set_index(file_ts)
+                splitDF = df[startString:startString]
+                df_tmp = splitDF[acc_channel]
+
+               #3 print("The week we are currently processing: " + str(week))
+               # print("The week that this file started: " + str(endDate.week))
+            else:
+                df_tmp = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                df_tmp = df_tmp[acc_channel]
+
             startByWeek.append(startDate)
-            # file_name.append(x)
             fileByWeek.append(x)
+            hertzByWeek.append(hertz)
             file_id.append(x[0:13])
-            df_tmp = pd.read_csv(folder_to_analyze+x,
-                                 skiprows=12, names=['accX', 'accY', 'accZ'])
-            df_tmp = df_tmp[acc_channel]  # keep only 1 channel for speed
             len_tmp = round((len(df_tmp)/(25*60*60)), 2)
-            # file_len_hr.append(len_tmp)
             lenByWeek.append(len_tmp)
             dataByWeek.append(df_tmp)
-            # file_data.append(df_tmp)
+
+
             try:
                 frames = [dfByWeek, df_tmp]
                 dfByWeek = pd.concat(frames)
             except:
                 dfByWeek = df_tmp
         else:
-            print('Ignored file', )
-    return dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart
+            print('Ignored file', x)
+    return dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertzByWeek
 
 
 def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz):
@@ -101,7 +140,7 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     file_name_short = str(week)
     import matplotlib.backends.backend_pdf
     pdf = matplotlib.backends.backend_pdf.PdfPages(
-        file_path + '/Verisense_Raw_Acc_QC/' + 'raw_acc_' + file_start[0].strftime("%Y%m%d") + "_to_" + file_start[-1].strftime("%Y%m%d") + '.pdf')
+        file_path + '/Verisense_Raw_Gyro_QC/' + 'raw_acc_' + file_start[0].strftime("%Y%m%d") + "_to_" + file_start[-1].strftime("%Y%m%d") + '.pdf')
 
     reportDate = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     firstPage = plt.figure(figsize=(12, 12))
@@ -149,13 +188,13 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
         print(' ')
 
     file_ts = []
-
     for idx, i_file in enumerate(file_data):
         fs = int(hertz[idx])
-        freq = 1000 / fs
+        #freq = round(1000 / fs)
+        freq = round(1000000 / fs)
         # Faster method of generating time stamps
         file_ts.append(pd.date_range(file_start[idx], freq=str(
-            freq)+"ms", periods=len(file_data[idx])))
+            freq)+"us", periods=len(file_data[idx])))
 
     import matplotlib.dates as mdates
 
@@ -190,25 +229,25 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             if new_day:
                 if subplot_num == 7:
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 6)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 5)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 4)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 3)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 2)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 1)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax.set_xlabel('Time [hr]')
                     plt.tight_layout()
                     pdf.savefig(fig1)
@@ -219,9 +258,6 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             ax.plot(file_ts[idx], i_file, color='red')
             ax.plot(file_ts[idx][0], 0, color='blue',
                     linestyle='None', marker='p', label="Start of file")
-            # Remove this blank point if you don't want to have it on the legend
-            ax.plot(0, 0, color='black', marker='o',
-                    linestyle='None', label='File runs over midnight')
             plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H'))
             plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=2))
             start_datetime_xlim = datetime(
@@ -229,14 +265,14 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             end_datetime_xlim = datetime(
                 file_ts[idx][0].year, file_ts[idx][0].month, file_ts[idx][0].day, 23, 59, 59) + pd.Timedelta(seconds=1)
             plt.xlim([start_datetime_xlim, end_datetime_xlim])
-            plt.ylim([50, -50])
-            plt.title(str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
+            plt.ylim([1000, -1000])
+            plt.title(start_datetime_xlim.strftime('%A')[0:3] + ': '+ str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
                       '-'+str(start_datetime_xlim.day) + ' [y-m-d]')
             plt.tight_layout()
             curr_day = end_day
             if idx == 0:
                 handles, labels = ax.get_legend_handles_labels()
-                ax.legend(handles, labels, bbox_to_anchor=(.6,
+                ax.legend(handles, labels, bbox_to_anchor=(.85,
                                                            1.02, .5, .102), loc=3, ncol=2)
 
         elif num_days == 2:
@@ -245,25 +281,25 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             if new_day:
                 if subplot_num == 7:
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 6)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 5)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 4)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 3)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 2)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax = fig1.add_subplot(7, 1, 1)
                     ax.grid(True)
-                    ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                    ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                     ax.set_xlabel('Time [hr]')
                     plt.tight_layout()
                     pdf.savefig(fig1)
@@ -273,9 +309,6 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             ax.plot(file_ts[idx][0:end_idx], i_file[0:end_idx], color='red')
             ax.plot(file_ts[idx][0], 0, color='blue',
                     linestyle='None', marker='p', label="Start of file")
-            # Remove this blank point if you don't want to have it on the legend
-            ax.plot(0, 0, color='black', marker='o',
-                    linestyle='None', label='File runs over midnight')
             plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H'))
             plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=2))
             start_datetime_xlim = datetime(
@@ -283,38 +316,38 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             end_datetime_xlim = datetime(
                 file_ts[idx][0].year, file_ts[idx][0].month, file_ts[idx][0].day, 23, 59, 59) + pd.Timedelta(seconds=1)
             plt.xlim([start_datetime_xlim, end_datetime_xlim])
-            plt.ylim([50, -50])
-            plt.title(str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
+            plt.ylim([1000, -1000])
+            plt.title(start_datetime_xlim.strftime('%A')[0:3] + ': '+ str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
                       '-'+str(start_datetime_xlim.day) + ' [y-m-d]')
             plt.tight_layout()
             if idx == 0:
                 handles, labels = ax.get_legend_handles_labels()
-                ax.legend(handles, labels, bbox_to_anchor=(.6,
+                ax.legend(handles, labels, bbox_to_anchor=(.85,
                                                            1.02, .25, .102), loc=3, ncol=2)
 
             # 2nd plot:
             end_idx += 1
             if subplot_num == 7:
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 6)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 5)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 4)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 3)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 2)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 1)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax.set_xlabel('Time [hr]')
                 plt.tight_layout()
                 pdf.savefig(fig1)
@@ -324,14 +357,13 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
             ax = fig1.add_subplot(7, 1, subplot_num)
             ax.plot(file_ts[idx][end_idx:len(i_file)],
                     i_file[end_idx:len(i_file)], color='red')
-            ax.plot(file_ts[idx][end_idx], 20, color='black', marker='o')
             plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H'))
             plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=2))
             start_datetime_xlim = end_datetime_xlim
             end_datetime_xlim = start_datetime_xlim + pd.Timedelta(hours=24)
             plt.xlim([start_datetime_xlim, end_datetime_xlim])
-            plt.ylim([50, -50])
-            plt.title(str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
+            plt.ylim([1000, -1000])
+            plt.title(start_datetime_xlim.strftime('%A')[0:3] + ': '+ str(start_datetime_xlim.year)+'-' + str(start_datetime_xlim.month) +
                       '-'+str(start_datetime_xlim.day) + ' [y-m-d]')
             plt.tight_layout()
             curr_day = end_day
@@ -340,25 +372,25 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
         if idx == (len(file_data)-1):
             if subplot_num > 0:
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 6)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 5)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 4)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 3)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 2)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 ax = fig1.add_subplot(7, 1, 1)
                 ax.grid(True)
-                ax.set_ylabel('AccX [m/s/s]', fontsize=y_font)
+                ax.set_ylabel('gyroX [deg/s]', fontsize=y_font)
                 if subplot_num == 1:
                     ax = fig1.add_subplot(7, 1, 1)
                     ax.set_xlabel('Time [hr]')
@@ -401,7 +433,8 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
                     ax.clear()
 
                 plt.tight_layout()
-        print('')
+        if verbose:
+            print('Completed.')
 
     pdf.savefig(fig1)
     plt.close(fig1)
@@ -413,13 +446,10 @@ if __name__ == "__main__":
     verbose = True
 
     if verbose:
-        print("Verisense Raw Data Visualization Tool v0.00.001")
+        print("Verisense Raw Data Visualization Tool v0.00.002")
         print('ENTER FOLDER LOCATION HERE')
 
     folder_to_analyze = input(Path("Folder: "))
-
-    # folder_to_analyze = 'C:/Users/TRich/Downloads/ParsedRu-20200301T203534Z-001/ParsedRu
-    #folder_to_analyze = 'C:/Users/TRich/Documents/ParsedFiles/ParsedFiles3'
 
     # Ignore warnings, as matplotlib throws a bunch in the middle. Take out for development.
     warnings.filterwarnings("ignore")
@@ -450,20 +480,19 @@ if __name__ == "__main__":
 
     # Attempt to create the output folder if it doesn't exist already
     try:
-        if not os.path.exists(folder_to_analyze+"/Verisense_Raw_Acc_QC/"):
-            os.makedirs(folder_to_analyze+"/Verisense_Raw_Acc_QC/")
+        if not os.path.exists(folder_to_analyze+"/Verisense_Raw_Gyro_QC/"):
+            os.makedirs(folder_to_analyze+"/Verisense_Raw_Gyro_QC/")
     except OSError:
         if verbose:
             print('Error: Creating directory. ' +
-                  folder_to_analyze+"/Verisense_Raw_Acc_QC/")
+                  folder_to_analyze+"/Verisense_Raw_Gyro_QC/")
 
     if verbose:
         print('\nSorting the files, removing duplicates and time errors.', end=' ... ')
-
     for x in files_list:
         if x[0] == '1' or x[0] == '2':  # check that is starts correctly
             if len(x) > 13:            # check that it has correct naming convenction
-                if x[14] == 'A':       # check that file name is correct
+                if x[14] == 'G':       # check that file name is correct
                     if x[0:13] not in file_id:  # check that it's not a repeat
                         sorted_list[pd.Timestamp(
                             year=int("20"+x[:2]), month=int(x[2:4]), day=int(x[4:6])).week].append(x)
@@ -478,11 +507,12 @@ if __name__ == "__main__":
     if verbose:
         print('Completed.')
         print('Found ' + str(len(file_id)) + ' unique files to process, ' + str(len(time_error_files)
-                                                                                ) + ' time error files, and ' + str(len(duplicate_files)) + ' duplicate files. \n')
+                                                                                 ) + ' time error files, and ' + str(len(duplicate_files)) + ' duplicate files. \n')
 
     # Check to determine if the function would draw more than 7 graphs, reordering the data until they will only do so.
     if verbose:
         print('Checking to confirm there will only be 7 graphs per page.', end=' ... ')
+
 
     for x in list(sorted_list):
         first = pd.read_csv(folder_to_analyze +
@@ -510,54 +540,38 @@ if __name__ == "__main__":
 
             try:
                 last_datetime = datetime(int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(last['h'][4].split(
-                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]))
+                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[0]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[1]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[2].split(".")[0]))
             except ValueError:
                 if verbose:
                     print('File ' + sorted_list[x][-1] +
                           ' has an irregular timestamp ')
                 last_datetime = datetime(int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(last['h'][4].split(
-                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]))
+                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[0]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[1]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[2].split(".")[0]))
 
             if last_datetime > last_graph:
-                sorted_list[x+1].insert(0, sorted_list[x][-1])
-                sorted_list[x].pop(-1)
+                # If we are moving files into the next weeks, make sure they are within the bounds possible (52 weeks in the year)
+                if (x+1) >= 53:
+                    y = x+1-52
+                    sorted_list[y].insert(0, sorted_list[x][-1])
+                else:
+                    sorted_list[x+1].insert(0, sorted_list[x][-1])
+                #sorted_list[x].pop(-1)
+                checked = False
             else:
                 checked = False
             if sorted_list[x] == []:
                 checked = False
 
-    if verbose:
-        print('Completed.')
-
-    # Check if there are different hertz in the data, and create a variable to hold it for each file
-    if verbose:
-        print('\nChecking hertz for each file.', end=' ... ')
-
-    different_hertz = collections.defaultdict(list)
-    hertz_list = []
-
-    for x in sorted_list:
-        for i in (sorted_list[x]):
-            data = pd.read_csv(folder_to_analyze+i, nrows=7, names=('he'))
-            hertz = data['h'][6].split("Rate = ", 2)[1].split(".")[0]
-            if hertz not in hertz_list:
-                hertz_list.append(hertz)
-            different_hertz[pd.Timestamp(
-                            year=int("20"+i[:2]), month=int(i[2:4]), day=int(i[4:6])).week].append(hertz)
-
-    if verbose:
-        print('Completed.')
-        print('The different hertz are: ' + str(hertz_list))
 
     for idx, x in enumerate(sorted_list):
         if verbose:
             print('\nIn week: ' + str(x) + ' which has a total of ' +
                   str(len(sorted_list[x])) + ' files.')
-        dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart = pull_information(
-            sorted_list[x])
+        dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz = pull_information(
+            sorted_list[x], x)
         plot(fileByWeek, dfByWeek, startByWeek, lenByWeek, dataByWeek, x, deviceName, deviceVersion, firmwareVersion,
-             sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], different_hertz[x])
+              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz)
         if verbose:
             print('Completed week ' + str(x))
     if verbose:
-        print('Finished processing.')
+        print('\n Completely finished processing.\n')
