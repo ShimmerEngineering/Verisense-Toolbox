@@ -109,7 +109,7 @@ def pull_information(files_list, week):
     return dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertzByWeek
 
 
-def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz):
+def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz, extra_pages=False):
     if verbose:
         print('Writing the file information, histogram, and Accel description tables', end=' ... ')
    # print('Processing the files \n')
@@ -154,14 +154,15 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     pdf.savefig()
     plt.close(firstPage)
 
-    # Combination table of the describe function as well as the uniques, na, and empty columns.
-    fig, ax = plt.subplots()
-    ax.set_title('Accel Description Table')
-    ax.axis('off')
-    ax.table(cellText=fullTable.values, rowLabels=fullTable.index.values,
-             colLabels=fullTable.columns, bbox=[0, 0, 1, 1])
-    pdf.savefig(bbox_inches='tight')
-    plt.close(fig)
+    if extra_pages:
+        # Combination table of the describe function as well as the uniques, na, and empty columns.
+        fig, ax = plt.subplots()
+        ax.set_title('Accel Description Table')
+        ax.axis('off')
+        ax.table(cellText=fullTable.values, rowLabels=fullTable.index.values,
+                colLabels=fullTable.columns, bbox=[0, 0, 1, 1])
+        pdf.savefig(bbox_inches='tight')
+        plt.close(fig)
 
     # plot file info table
     fig, ax = plt.subplots()
@@ -172,16 +173,16 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     pdf.savefig(bbox_inches='tight')
     plt.close(fig)
 
-    # Histogram on one page
-    fig = plt.figure(figsize=(10, 10))
-    plt.hist(df, color='red', bins=50)
-    plt.grid()
-    plt.xlabel(acc_channel)
-    plt.ylabel('counts')
-    plt.title('Histogram of Raw Acceleration')
-
-    pdf.savefig(fig)
-    plt.close(fig)
+    if extra_pages:
+        # Histogram on one page
+        fig = plt.figure(figsize=(10, 10))
+        plt.hist(df, color='red', bins=50)
+        plt.grid()
+        plt.xlabel(acc_channel)
+        plt.ylabel('counts')
+        plt.title('Histogram of Raw Acceleration')
+        pdf.savefig(fig)
+        plt.close(fig)
 
     if verbose:
         print('Completed.')
@@ -571,7 +572,7 @@ if __name__ == "__main__":
         dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz = pull_information(
             sorted_list[x], x)
         plot(fileByWeek, dfByWeek, startByWeek, lenByWeek, dataByWeek, x, deviceName, deviceVersion, firmwareVersion,
-              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz)
+              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz, extra_pages=False)
         if verbose:
             print('Completed week ' + str(x))
     if verbose:

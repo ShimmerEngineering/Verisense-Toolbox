@@ -1,5 +1,5 @@
-# Verisense Raw Accelerometer Data Quality Check Report
-# 1 - enter the location of the raw ACCEL files in the 'folder to analyze'
+# Verisense Raw Gyroscope Data Quality Check Report
+# 1 - enter the location of the raw GYRO files in the 'folder to analyze'
 # 2 - Cell / Run All: will run script and create pdf report in same folder
 import numpy as np
 import pandas as pd
@@ -41,7 +41,8 @@ def pull_information(files_list, week):
                 deviceVersion = df_head.h[0][36:48]
                 firmwareVersion = df_head.h[0][69:78]
                 sample_rate = df_head.h[6][22:29]
-                sensor_range = df_head.h[6][39:44]
+                #sensor_range = df_head.h[6][39:44]
+                sensor_range = df_head.h[6][66:]
                 firstStart = startDate + " " + startTime
 
 
@@ -109,7 +110,7 @@ def pull_information(files_list, week):
     return dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertzByWeek
 
 
-def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz):
+def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz, extra_pages=False):
     if verbose:
         print('Writing the file information, histogram, and Accel description tables', end=' ... ')
    # print('Processing the files \n')
@@ -140,12 +141,12 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     file_name_short = str(week)
     import matplotlib.backends.backend_pdf
     pdf = matplotlib.backends.backend_pdf.PdfPages(
-        file_path + '/Verisense_Raw_Gyro_QC/' + 'raw_acc_' + file_start[0].strftime("%Y%m%d") + "_to_" + file_start[-1].strftime("%Y%m%d") + '.pdf')
+        file_path + '/Verisense_Raw_Gyro_QC/' + 'raw_gyro_' + file_start[0].strftime("%Y%m%d") + "_to_" + file_start[-1].strftime("%Y%m%d") + '.pdf')
 
     reportDate = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     firstPage = plt.figure(figsize=(12, 12))
     firstPage.clf()
-    txt = 'Shimmer Verisense: Raw Acceleration Data Report\n\n Recording Start: ' + firstStart + "\n Report Creation: " + reportDate + '\n [day/month/year] \n\n Recorded by: ' + deviceName + " " + "\n Sensor ID: " + deviceVersion + "\n Firmare Version: " + firmwareVersion + \
+    txt = 'Shimmer Verisense: Raw Gyroscope Data Report\n\n Recording Start: ' + firstStart + "\n Report Creation: " + reportDate + '\n [day/month/year] \n\n Recorded by: ' + deviceName + " " + "\n Sensor ID: " + deviceVersion + "\n Firmare Version: " + firmwareVersion + \
         "\n Sample Rate: " + sample_rate + "\n Sensor Range: " + sensor_range + "\n Number of files: " + \
         str(len(dataByWeek)) + "\n Number of ignored duplicate files: " + str(len(duplicate_files)
                                                                               ) + "\n Number of ignored time error (1970) files: " + str(len(time_error_files))
@@ -154,14 +155,15 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     pdf.savefig()
     plt.close(firstPage)
 
-    # Combination table of the describe function as well as the uniques, na, and empty columns.
-    fig, ax = plt.subplots()
-    ax.set_title('Accel Description Table')
-    ax.axis('off')
-    ax.table(cellText=fullTable.values, rowLabels=fullTable.index.values,
-             colLabels=fullTable.columns, bbox=[0, 0, 1, 1])
-    pdf.savefig(bbox_inches='tight')
-    plt.close(fig)
+    if extra_pages:
+        # Combination table of the describe function as well as the uniques, na, and empty columns.
+        fig, ax = plt.subplots()
+        ax.set_title('Rotation Rate Description Table')
+        ax.axis('off')
+        ax.table(cellText=fullTable.values, rowLabels=fullTable.index.values,
+                colLabels=fullTable.columns, bbox=[0, 0, 1, 1])
+        pdf.savefig(bbox_inches='tight')
+        plt.close(fig)
 
     # plot file info table
     fig, ax = plt.subplots()
@@ -172,16 +174,16 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     pdf.savefig(bbox_inches='tight')
     plt.close(fig)
 
-    # Histogram on one page
-    fig = plt.figure(figsize=(10, 10))
-    plt.hist(df, color='red', bins=50)
-    plt.grid()
-    plt.xlabel(acc_channel)
-    plt.ylabel('counts')
-    plt.title('Histogram of Raw Acceleration')
-
-    pdf.savefig(fig)
-    plt.close(fig)
+    if extra_pages:
+        # Histogram on one page
+        fig = plt.figure(figsize=(10, 10))
+        plt.hist(df, color='red', bins=50)
+        plt.grid()
+        plt.xlabel(acc_channel)
+        plt.ylabel('counts')
+        plt.title('Histogram of Raw Rotation Rate')
+        pdf.savefig(fig)
+        plt.close(fig)
 
     if verbose:
         print('Completed.')
@@ -570,7 +572,7 @@ if __name__ == "__main__":
         dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz = pull_information(
             sorted_list[x], x)
         plot(fileByWeek, dfByWeek, startByWeek, lenByWeek, dataByWeek, x, deviceName, deviceVersion, firmwareVersion,
-              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz)
+              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz, extra_pages=False)
         if verbose:
             print('Completed week ' + str(x))
     if verbose:
