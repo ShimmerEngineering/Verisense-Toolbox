@@ -1,4 +1,5 @@
 findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
+  # by Matthew R Patterson, mpatterson@shimmersensing.com
   ## Find peaks of RMS acceleration signal according to Gu et al, 2017 method
   # This method is based off finding peaks in the summed and squared acceleration signal
   # and then using multiple thresholds to determine if each peak is a step or an artefact.
