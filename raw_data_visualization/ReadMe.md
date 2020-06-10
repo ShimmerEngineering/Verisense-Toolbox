@@ -32,7 +32,7 @@ For each week (Mon - Sun) that contains data a separate pdf report is generated.
 ![alt text](figs/accel_description_table.jpg)
 #### File Information Table:
 ![alt text](figs/file_info_table.jpg)
-### Histogram
+#### Histogram
 ![alt text](figs/histogram.jpg)
-### Raw Data
+#### Raw Data
 ![alt text](figs/raw_data.jpg)
