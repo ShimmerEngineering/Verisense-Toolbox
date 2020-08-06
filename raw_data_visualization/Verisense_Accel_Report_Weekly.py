@@ -32,16 +32,17 @@ def pull_information(files_list, week):
             endTime = df_head.h[4][35:43]
             startDate = df_head.h[3][36:47]
             endDate = df_head.h[4][24:35]
-            hertz = df_head.h[6].split("Rate = ", 2)[1].split(".")[0]
+            hertz = df_head.h[6].split("Rate = ", 2)[1].split("Hz")[0]
+            hertz = float(hertz)
             #freq = round(1000 / int(hertz))
-            freq = round(1000000 / int(hertz))
+            freq = round(1000000 / hertz)
             if raw_file_count == 1:
                 # parse out header data from the first file
                 deviceName = df_head.h[0][16:29]
                 deviceVersion = df_head.h[0][36:48]
                 firmwareVersion = df_head.h[0][69:78]
                 sample_rate = df_head.h[6][22:29]
-                sensor_range = df_head.h[6][39:44]
+                sensor_range = df_head.h[6].split("Range = ",2)[1].split("g")[0]
                 firstStart = startDate + " " + startTime
 
 
@@ -146,7 +147,7 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     firstPage = plt.figure(figsize=(12, 12))
     firstPage.clf()
     txt = 'Shimmer Verisense: Raw Acceleration Data Report\n\n Recording Start: ' + firstStart + "\n Report Creation: " + reportDate + '\n [day/month/year] \n\n Recorded by: ' + deviceName + " " + "\n Sensor ID: " + deviceVersion + "\n Firmare Version: " + firmwareVersion + \
-        "\n Sample Rate: " + sample_rate + "\n Sensor Range: " + sensor_range + "\n Number of files: " + \
+        "\n Sample Rate: " + sample_rate + "\n Sensor Range: " + sensor_range + "G \n Number of files: " + \
         str(len(dataByWeek)) + "\n Number of ignored duplicate files: " + str(len(duplicate_files)
                                                                               ) + "\n Number of ignored time error (1970) files: " + str(len(time_error_files))
     firstPage.text(0.5, 0.5, txt, transform=firstPage.transFigure,
@@ -215,9 +216,9 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
 
     file_ts = []
     for idx, i_file in enumerate(file_data):
-        fs = int(hertz[idx])
+        fs = hertz[idx]
         #freq = round(1000 / fs)
-        freq = round(1000000 / int(fs))
+        freq = round(1000000 / fs)
         # Faster method of generating time stamps
         file_ts.append(pd.date_range(file_start[idx], freq=str(
             freq)+"us", periods=len(file_data[idx])))
@@ -232,13 +233,16 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
         if verbose:
             print('Currently drawing ' + file_name[idx], end=' ... ')
 
-        fs = int(hertz[idx])
+        fs = hertz[idx]
 
         samples_per_day = fs*60*60*24
 
         start_day = file_ts[idx][0].day
         end_day = file_ts[idx][len(file_ts[idx])-1].day
-        num_days = end_day - start_day + 1
+        if end_day == 1 and start_day != end_day:
+            num_days = 2
+        else:
+            num_days = end_day - start_day + 1
 
         # figure out if a new subplot is required: compare start_day to curr_day
         if curr_day == start_day:
@@ -302,7 +306,7 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
                                                            1.02, .5, .102), loc=3, ncol=2)
 
         elif num_days == 2:
-            end_idx = samples_per_day - start_idx - 1
+            end_idx = round(samples_per_day - start_idx - 1)
 
             if new_day:
                 if subplot_num == 7:

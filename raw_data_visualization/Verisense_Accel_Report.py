@@ -217,13 +217,16 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
         if verbose:
             print('Currently drawing ' + file_name[idx], end=' ... ')
 
-        fs = int(hertz[idx])
+        fs = hertz[idx]
 
         samples_per_day = fs*60*60*24
 
         start_day = file_ts[idx][0].day
         end_day = file_ts[idx][len(file_ts[idx])-1].day
-        num_days = end_day - start_day + 1
+        if end_day == 1 and start_day != end_day:
+            num_days = 2
+        else:
+            num_days = end_day - start_day + 1
 
         # figure out if a new subplot is required: compare start_day to curr_day
         if curr_day == start_day:
@@ -287,7 +290,7 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
                                                            1.02, .5, .102), loc=3, ncol=2)
 
         elif num_days == 2:
-            end_idx = samples_per_day - start_idx - 1
+            end_idx = round(samples_per_day - start_idx - 1)
 
             if new_day:
                 if subplot_num == 7:
