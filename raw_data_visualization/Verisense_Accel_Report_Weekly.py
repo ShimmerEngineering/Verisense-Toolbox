@@ -1,4 +1,4 @@
-# Verisense Raw Accelerometer Data Quality Check Report (one report)
+# Verisense Raw Accelerometer Data Quality Check Report
 # 1 - enter the location of the raw ACCEL files in the 'folder to analyze'
 # 2 - Cell / Run All: will run script and create pdf report in same folder
 import numpy as np
@@ -9,24 +9,21 @@ import matplotlib.pyplot as plt
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-import math
 # %matplotlib inline
 
-def pull_info2(files_list):
-    #print("\n\nThe week we are currently processing: " + str(week))
-    import datetime
+
+def pull_information(files_list, week):
+    print("\n\nThe week we are currently processing: " + str(week))
     dfByWeek = []
     dataByWeek = []
-    start_datetime = []
-    end_datetime = []
+    startByWeek = []
     fileByWeek = []
     lenByWeek = []
-    hertz_by_file = []
+    hertzByWeek = []
     file_id = []
     raw_file_count = 0
-    missing_time = []
 
-    for idx,x in enumerate(files_list):
+    for x in files_list:
         if x[0:13] not in file_id:  # check that it's not a repeat
             raw_file_count += 1
             df_head = pd.read_csv(folder_to_analyze+x, nrows=7, names=('he'))
@@ -35,18 +32,18 @@ def pull_info2(files_list):
             endTime = df_head.h[4][35:43]
             startDate = df_head.h[3][36:47]
             endDate = df_head.h[4][24:35]
-            hertz = df_head.h[6].split("Rate = ", 2)[1].split("Hz")[0]
-            hertz = float(hertz)
+            hertz = df_head.h[6].split("Rate = ", 2)[1].split(".")[0]
             #freq = round(1000 / int(hertz))
-            freq = round(1000000 / hertz)
+            freq = round(1000000 / int(hertz))
             if raw_file_count == 1:
                 # parse out header data from the first file
                 deviceName = df_head.h[0][16:29]
                 deviceVersion = df_head.h[0][36:48]
                 firmwareVersion = df_head.h[0][69:78]
                 sample_rate = df_head.h[6][22:29]
-                sensor_range = df_head.h[6].split("Range = ",2)[1].split("g")[0]
+                sensor_range = df_head.h[6][39:44]
                 firstStart = startDate + " " + startTime
+
 
             try:
                 startString = startDate[6:10] + "-" + startDate[3:5] + "-" + startDate[0:2]
@@ -55,6 +52,7 @@ def pull_info2(files_list):
                     startDate[0:2]), hour=int(startTime[0:2]), minute=int(startTime[3:5]), second=int(startTime[6:8]))
                 endDate = pd.Timestamp(year=int(endDate[6:10]), month=int(endDate[3:5]), day=int(
                     endDate[0:2]), hour=int(endTime[0:2]), minute=int(endTime[3:5]), second=int(endTime[6:8]))
+
             except ValueError:
                 startString = startDate[6:10] + "-" + startDate[0:2] + "-" + startDate[3:5]
                 endString = endDate[6:10] + "-" + endDate[0:2] + "-" + endDate[3:5]
@@ -63,25 +61,43 @@ def pull_info2(files_list):
                 endDate = pd.Timestamp(year=int(endDate[6:10]), month=int(endDate[0:2]), day=int(
                     endDate[3:5]), hour=int(endTime[0:2]), minute=int(endTime[3:5]), second=int(endTime[6:8]))
 
-            df_tmp = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
-            df_tmp = df_tmp[acc_channel]
 
-            start_datetime.append(startDate)
-            end_datetime.append(endDate)
+
+            if startDate.week != week:
+                file_data = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                file_ts = pd.date_range(startDate, freq=str(freq)+"us", periods=len(file_data))
+                df = pd.DataFrame()
+                df = file_data.set_index(file_ts)
+                splitDF = df[endString:endString]
+                startDate = endDate
+                df_tmp = file_data[acc_channel]
+
+
+
+               # print("The week we are currently processing: " + str(week))
+              # print("The week that this file started: " + str(startDate.week))
+            elif endDate.week != week:
+                file_data = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                file_ts = pd.date_range(startDate, freq=str(freq)+"us", periods=len(file_data))
+                df = pd.DataFrame()
+                df = file_data.set_index(file_ts)
+                splitDF = df[startString:startString]
+                df_tmp = splitDF[acc_channel]
+
+               #3 print("The week we are currently processing: " + str(week))
+               # print("The week that this file started: " + str(endDate.week))
+            else:
+                df_tmp = pd.read_csv(folder_to_analyze+x,skiprows=12, names=['accX', 'accY', 'accZ'])
+                df_tmp = df_tmp[acc_channel]
+
+            startByWeek.append(startDate)
             fileByWeek.append(x)
-            hertz_by_file.append(hertz)
+            hertzByWeek.append(hertz)
             file_id.append(x[0:13])
-            len_tmp = round((len(df_tmp)/(hertz*60*60)), 2)
+            len_tmp = round((len(df_tmp)/(25*60*60)), 2)
             lenByWeek.append(len_tmp)
             dataByWeek.append(df_tmp)
 
-            # check missing samples
-            estimated_end_datetime = startDate + datetime.timedelta(hours = len_tmp)
-            if idx > 0:
-                missing_time.append(startDate - last_ending)
-            else:
-                missing_time.append(0)
-            last_ending = estimated_end_datetime
 
             try:
                 frames = [dfByWeek, df_tmp]
@@ -90,11 +106,10 @@ def pull_info2(files_list):
                 dfByWeek = df_tmp
         else:
             print('Ignored file', x)
+    return dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertzByWeek
 
-    return dfByWeek, dataByWeek, start_datetime, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz_by_file, missing_time
 
-
-def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz, missing_time, extra_pages=False):
+def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, duplicate_files, time_error_files, hertz, extra_pages=False):
     if verbose:
         print('Writing the file information, histogram, and Accel description tables', end=' ... ')
    # print('Processing the files \n')
@@ -131,7 +146,7 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     firstPage = plt.figure(figsize=(12, 12))
     firstPage.clf()
     txt = 'Shimmer Verisense: Raw Acceleration Data Report\n\n Recording Start: ' + firstStart + "\n Report Creation: " + reportDate + '\n [day/month/year] \n\n Recorded by: ' + deviceName + " " + "\n Sensor ID: " + deviceVersion + "\n Firmare Version: " + firmwareVersion + \
-        "\n Sample Rate: " + sample_rate + "\n Sensor Range: " + sensor_range + " G\n Number of files: " + \
+        "\n Sample Rate: " + sample_rate + "\n Sensor Range: " + sensor_range + "\n Number of files: " + \
         str(len(dataByWeek)) + "\n Number of ignored duplicate files: " + str(len(duplicate_files)
                                                                               ) + "\n Number of ignored time error (1970) files: " + str(len(time_error_files))
     firstPage.text(0.5, 0.5, txt, transform=firstPage.transFigure,
@@ -200,9 +215,9 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
 
     file_ts = []
     for idx, i_file in enumerate(file_data):
-        fs = hertz[idx]
+        fs = int(hertz[idx])
         #freq = round(1000 / fs)
-        freq = round(1000000 / fs)
+        freq = round(1000000 / int(fs))
         # Faster method of generating time stamps
         file_ts.append(pd.date_range(file_start[idx], freq=str(
             freq)+"us", periods=len(file_data[idx])))
@@ -452,15 +467,12 @@ def plot(file_name, df, file_start, file_len_hr, file_data, week, deviceName, de
     pdf.close()
 
 
-
-
-
 if __name__ == "__main__":
 
     verbose = True
 
     if verbose:
-        print("Verisense Raw Accel Data Visualization Tool v0.00.001")
+        print("Verisense Raw Data Visualization Tool v0.00.002")
         print('ENTER FOLDER LOCATION HERE')
 
     folder_to_analyze = input(Path("Folder: "))
@@ -490,7 +502,6 @@ if __name__ == "__main__":
     sorted_list = collections.defaultdict(list)
     duplicate_files = collections.defaultdict(list)
     time_error_files = collections.defaultdict(list)
-    good_list = []
 
     file_id = []
 
@@ -508,9 +519,10 @@ if __name__ == "__main__":
     for x in files_list:
         if x[0] == '1' or x[0] == '2':  # check that is starts correctly
             if len(x) > 13:            # check that it has correct naming convenction
-                if x[14] == 'A' and x[20] == 'D':       # only use Accel_DEFAULT_CAL files
+                if x[14] == 'A':       # check that file name is correct
                     if x[0:13] not in file_id:  # check that it's not a repeat
-                        good_list.append(x)
+                        sorted_list[pd.Timestamp(
+                            year=int("20"+x[:2]), month=int(x[2:4]), day=int(x[4:6])).week].append(x)
                         file_id.append(x[0:13])
                     else:
                         duplicate_files[pd.Timestamp(
@@ -524,9 +536,69 @@ if __name__ == "__main__":
         print('Found ' + str(len(file_id)) + ' unique files to process, ' + str(len(time_error_files)
                                                                                  ) + ' time error files, and ' + str(len(duplicate_files)) + ' duplicate files. \n')
 
-    dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz_by_file, missing_time = pull_info2(good_list)
-    plot(fileByWeek, dfByWeek, startByWeek, lenByWeek, dataByWeek, x, deviceName, deviceVersion, firmwareVersion,
-            sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz_by_file, missing_time, extra_pages=False)
+    # Check to determine if the function would draw more than 7 graphs, reordering the data until they will only do so.
+    if verbose:
+        print('Checking to confirm there will only be 7 graphs per page.', end=' ... ')
 
+
+    for x in list(sorted_list):
+        first = pd.read_csv(folder_to_analyze +
+                            sorted_list[x][0], nrows=7, names=('he'))
+        # Test if there is an issue with the date
+
+    # Use these to test if the format is correct in the dates in the file's headers.
+        try:
+            first_datetime = datetime(int(first['h'][3].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(first['h'][3].split(
+                "= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(first['h'][3].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]))
+        except ValueError:
+            if verbose:
+                print('File ' + sorted_list[x][0] +
+                      ' has an irregular timestamp ')
+            first_datetime = datetime(int(first['h'][3].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(first['h'][3].split(
+                "= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(first['h'][3].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]))
+
+        last_graph = (first_datetime) + timedelta(weeks=1)
+
+        checked = True
+
+        while checked:
+            last = pd.read_csv(folder_to_analyze +
+                               sorted_list[x][-1], nrows=7, names=('he'))
+
+            try:
+                last_datetime = datetime(int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(last['h'][4].split(
+                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[0]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[1]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[2].split(".")[0]))
+            except ValueError:
+                if verbose:
+                    print('File ' + sorted_list[x][-1] +
+                          ' has an irregular timestamp ')
+                last_datetime = datetime(int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[2]), int(last['h'][4].split(
+                    "= ", 2)[1].split(' ', 2)[0].split('/', 3)[0]), int(last['h'][4].split("= ", 2)[1].split(' ', 2)[0].split('/', 3)[1]), int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[0]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[1]),int(last['h'][4].split("= ")[1].split(" ")[1].split(':')[2].split(".")[0]))
+
+            if last_datetime > last_graph:
+                # If we are moving files into the next weeks, make sure they are within the bounds possible (52 weeks in the year)
+                if (x+1) >= 53:
+                    y = x+1-52
+                    sorted_list[y].insert(0, sorted_list[x][-1])
+                else:
+                    sorted_list[x+1].insert(0, sorted_list[x][-1])
+                #sorted_list[x].pop(-1)
+                checked = False
+            else:
+                checked = False
+            if sorted_list[x] == []:
+                checked = False
+
+
+    for idx, x in enumerate(sorted_list):
+        if verbose:
+            print('\nIn week: ' + str(x) + ' which has a total of ' +
+                  str(len(sorted_list[x])) + ' files.')
+        dfByWeek, dataByWeek, startByWeek, fileByWeek, lenByWeek, deviceName, deviceVersion, firmwareVersion, sample_rate, sensor_range, firstStart, hertz = pull_information(
+            sorted_list[x], x)
+        plot(fileByWeek, dfByWeek, startByWeek, lenByWeek, dataByWeek, x, deviceName, deviceVersion, firmwareVersion,
+              sample_rate, sensor_range, firstStart, duplicate_files[x], time_error_files[x], hertz, extra_pages=False)
+        if verbose:
+            print('Completed week ' + str(x))
     if verbose:
         print('\n Completely finished processing.\n')

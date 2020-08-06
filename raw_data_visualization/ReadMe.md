@@ -1,15 +1,22 @@
-## Verisense Raw Data Visualization Tool
+## Verisense Raw Data Visualization Tools
 
-This is a python tool for Windows that can be run from the command line to create visualizations in pdf files of a folder of raw Verisense (.csv) recordings. A separate pdf file will be created for each week of raw data. After running the tool, pdf files can be found in the 'Verisense_Raw_Acc_QC' folder inside the folder with the raw data that is being analyzed.
+These are python tools for Windows that are run from the command line to create visualizations of raw Verisense sensor data. Simply point the tool to a folder of raw Verisense data and a pdf report will be generated in the same folder with visualizations of the raw data. There are three different .py files that are all called the same way, but produce different reports.
 
-There is a separate tool for viewing raw gyroscope data from Verisense. It is run the same way as the accel data viewer, it just has a different name and creates a folder called 'Verisense_Raw_Gyro_QC' in which the pdf reports will be generated.
+- Verisense_Accel_Report.py
+	- One report for all accelerometer data
+- Verisense_Accel_Report_Weekly.py
+	- A different report for each week of accelerometer data
+- Verisense_Gyro_Report_Weekly.py
+	- A different report for each week of gyroscope data
+
+The weekly reports are necessary when a large amount of data is being processed to prevent running into memory issues.
 
 ### Instructions
 
 - cmd window
 - go to folder containing the .py file
-- type 'python Verisense_Raw_Acc_Report.py' in cmd window to view acceleration data
-- if gyroscope data is available, type 'python Verisense_Raw_Gyro_Report.py' in cmd window to view gyro data
+- type 'python Verisense_Accel_Report.py' in cmd window to view acceleration data
+- if gyroscope data is available, type 'python Verisense_Raw_Gyro_Report_Weekly.py' in cmd window to view gyro data
 - then enter path to folder (using either '/' or '\\') in cmd window
 - pdf reports(s) will be created in path folder with visualizations
 
@@ -17,7 +24,7 @@ There is a separate tool for viewing raw gyroscope data from Verisense. It is ru
 ### Dependencies
 - python (64-bit)
 - following python packages:
-	- numpy, pandas, matplotlib and pathlib
+	- numpy, pandas, matplotlib, math, datetime and pathlib
   - 'python -m pip install numpy' to install
 
 ### Notes
@@ -34,7 +41,7 @@ For each week (Mon - Sun) that contains data a separate pdf report is generated.
 ![alt text](figs/raw_data.jpg)
 
 ### Depreciated Output
-This data is no longer being generated in the pdf reports. Code is still available, so it easy to turn back on if necessary.
+This data is no longer being generated in the pdf reports. Code is still available, so they can be turned back on if necessary.
 #### Accel Description Table:
 ![alt text](figs/accel_description_table.jpg)
 #### Histogram:
