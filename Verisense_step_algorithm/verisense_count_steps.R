@@ -11,12 +11,8 @@ findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
   acc <- sqrt(input_data[,1]^2 + input_data[,2]^2 + input_data[,3]^2)
 
   # Thresholds
-  # list(3,5,15,-0.5,3,4,0.001,1.2)
-  #k <- round((coeffs[1]*fs)/15)              # peak search window
   k <- coeffs[[1]]
-  #period_min <- round((coeffs[2]*fs)/15)     # minimum periodicity
   period_min <- coeffs[[2]]
-  #period_max <- round((coeffs[3]*fs)/15)    # maximum periodicity
   period_max <- coeffs[[3]]
   sim_thres <- coeffs[[4]]   # similarity threshold
   cont_win_size <- coeffs[[5]]  # continuity window size
@@ -71,45 +67,58 @@ findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
   peak_info[1:(num_peaks-2),4] <- -abs(diff(peak_info[,2],2)) # calculate similarity
   peak_info <- peak_info[peak_info[,4] > sim_thres,]  # filter based on sim_thres
   peak_info <- peak_info[is.na(peak_info[,1])!=TRUE,] # previous statement can result in an NA in col-1
- 
-  # calculate continuity
-  end_for <- length(peak_info[,3])-1
-  for (i in cont_thres:end_for) {
-    # for each bw peak period calculate acc var
-    v_count <- 0 # count how many windows were over the variance threshold
-    for (x in 1:cont_thres) {
-      if (var(acc[peak_info[i-x+1,1]:peak_info[i-x+2,1]]) > var_thres) {
-        v_count = v_count + 1
+  
+  if (length(peak_info)==0) {
+    # no steps found
+    num_seconds = round(length(acc) / fs)
+    steps_per_sec = rep(0,num_seconds)
+  } else {
+    # calculate continuity
+    end_for <- length(peak_info[,3])-1
+    for (i in cont_thres:end_for) {
+      # for each bw peak period calculate acc var
+      v_count <- 0 # count how many windows were over the variance threshold
+      for (x in 1:cont_thres) {
+        if (var(acc[peak_info[i-x+1,1]:peak_info[i-x+2,1]]) > var_thres) {
+          v_count = v_count + 1
+        }
+      }
+      if (v_count >= cont_win_size) {
+        peak_info[i,5] <- 1 # set continuity to 1, otherwise, 0
+      } else {
+        peak_info[i,5] <- 0
       }
     }
-    if (v_count >= cont_win_size) {
-      peak_info[i,5] <- 1 # set continuity to 1, otherwise, 0
+    peak_info <- peak_info[peak_info[,5]==1,1] # continuity test - only keep locations after this
+    peak_info <- peak_info[is.na(peak_info)!=TRUE] # previous statement can result in an NA in col-1
+    
+    if (length(peak_info)==0) {
+      # no steps found
+      num_seconds = round(length(acc) / fs)
+      steps_per_sec = rep(0,num_seconds)
     } else {
-      peak_info[i,5] <- 0
+    
+      # debug plot
+      # is_plot = F
+      # if (is_plot) {
+      #   library(ggplot2)
+      #   library(plotly)
+      #   acc.df <- data.frame(acc=acc, det_step=integer(length(acc)))
+      #   acc.df$det_step[peak_info] <- 1  # to plot annotations, prepare a 0/1 column on dataframe
+      #   acc.df$idx <- as.numeric(row.names(acc.df))
+      #   pl <- ggplot(data=acc.df,aes(x=idx,y=acc)) 
+      #   pl2 <- pl + geom_line()
+      #   pl3 <- pl2 + geom_point(data=subset(acc.df,det_step==1),aes(x=idx,y=acc),color='red',size=1,alpha=0.7)
+      #   pl4 <- ggplotly(pl3)
+      #   print(pl4)  
+      # }
+      
+      # for GGIR, output the number of steps in 1 second chunks
+      start_idx_vec <- seq(from=1,to=length(acc),by=fs)
+      steps_per_sec <- table(factor(findInterval(peak_info, start_idx_vec), levels = seq_along(start_idx_vec)))
+      steps_per_sec <- as.numeric(steps_per_sec)
     }
   }
-  peak_info <- peak_info[peak_info[,5]==1,1] # continuity test - only keep locations after this
-  peak_info <- peak_info[is.na(peak_info)!=TRUE] # previous statement can result in an NA in col-1
-  
-  # debug plot
-  # is_plot = F
-  # if (is_plot) {
-  #   library(ggplot2)
-  #   library(plotly)
-  #   acc.df <- data.frame(acc=acc, det_step=integer(length(acc)))
-  #   acc.df$det_step[peak_info] <- 1  # to plot annotations, prepare a 0/1 column on dataframe
-  #   acc.df$idx <- as.numeric(row.names(acc.df))
-  #   pl <- ggplot(data=acc.df,aes(x=idx,y=acc)) 
-  #   pl2 <- pl + geom_line()
-  #   pl3 <- pl2 + geom_point(data=subset(acc.df,det_step==1),aes(x=idx,y=acc),color='red',size=1,alpha=0.7)
-  #   pl4 <- ggplotly(pl3)
-  #   print(pl4)  
-  # }
-  
-  # for GGIR, output the number of steps in 1 second chunks
-  start_idx_vec <- seq(from=1,to=length(acc),by=fs)
-  steps_per_sec <- table(factor(findInterval(peak_info, start_idx_vec), levels = seq_along(start_idx_vec)))
-  steps_per_sec <- as.numeric(steps_per_sec)
 
   return(steps_per_sec)
 }
