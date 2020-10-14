@@ -33,10 +33,9 @@ There are two scripts available in this repo for analyzing Verisense PPG to HR d
 
 ## Requirements
 - Windows 10
-- 64-bit Python with the following packages:
+- 64-bit Python 3.8 (at time of writing 14th Oct 2020, the Panda package does not support Python 3.9)
+- Install the following packages:
   - pandas
   - numpy
   - matplotlib
-  - os
-  - datetime
-  - math
+  - DateTime
