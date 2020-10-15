@@ -8,7 +8,83 @@ from datetime import datetime
 import matplotlib.backends.backend_pdf
 import matplotlib.dates as mdates
 import math
-#
+from numpy.fft import fft, fftshift
+from scipy import signal
+
+header_size = 11
+sampling_rate = 50
+remove_avg = True
+apply_lpf = True
+
+ch_colour_ref = {
+    "PPG_Red": 'red',
+    "PPG_IR": 'purple',
+    "PPG_Green": 'green',
+    "PPG_Blue": 'blue'
+}
+
+# raw_data_folder = "C:/Users/Mark/Downloads/2020-10-14 PPG/NamanPPG/200929018D8F/ParsedFiles"
+# processed_data_folder = "C:/Users/Mark/Downloads/2020-10-14 PPG/NamanPPG/Algorithms/PPGtoHR"
+
+
+# https://tomroelandts.com/articles/how-to-create-a-simple-low-pass-filter
+def create_lp_filter():
+    fc = 5 / sampling_rate  # Cutoff frequency as a fraction of the sampling rate (in (0, 0.5)).
+    # b = 0.08  # Transition band, as a fraction of the sampling rate (in (0, 0.5)).
+    b = 0.02  # equates to N = 200 as per our Java implementation
+    N = int(np.ceil((4 / b)))
+    if not N % 2: N += 1  # Make sure that N is odd.
+    n = np.arange(N)
+
+    # Compute sinc filter.
+    # h = np.sinc(2 * fc * (n - (N - 1) / 2))
+    sinc_func = np.sinc(2 * fc * (n - (N - 1) / 2.))
+
+    # Compute Blackman window.
+    # window = 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) + \
+    #     0.08 * np.cos(4 * np.pi * n / (N - 1))
+    window = np.blackman(N)
+
+    # Multiply sinc filter by window.
+    # h = h * w
+    sinc_func = sinc_func * window
+
+    # Normalize to get unity gain.
+    # h = h / np.sum(h)
+    sinc_func = sinc_func / np.sum(sinc_func)
+
+    # plt.plot(window)
+    # plt.title("Blackman window")
+    # # Text(0.5, 1.0, 'Blackman window')
+    # plt.ylabel("Amplitude")
+    # # Text(0, 0.5, 'Amplitude')
+    # plt.xlabel("Sample")
+    # # Text(0.5, 0, 'Sample')
+    # plt.show()
+
+    # # Plot the frequency response
+    # # https://docs.scipy.org/doc/scipy-0.16.0/reference/generated/scipy.signal.freqz.html
+    # plot_freq = True
+    # w, h = signal.freqz(sinc_func)
+    # if plot_freq:
+    #     w = w * 2 * math.pi
+    # fig, (ax1) = plt.subplots(1, 1)
+    # plt.title('Digital filter frequency response')
+    # plt.plot(w, 20 * np.log10(abs(h)), 'b')
+    # plt.ylabel('Amplitude [dB]', color='b')
+    # if plot_freq:
+    #     plt.xlabel('Frequency [Hz]')
+    # else:
+    #     plt.xlabel('Frequency [rad/sample]')
+    # ax2 = ax1.twinx()
+    # angles = np.unwrap(np.angle(h))
+    # plt.plot(w, angles, 'g')
+    # plt.ylabel('Angle (radians)', color='g')
+    # plt.grid()
+    # plt.axis('tight')
+    # plt.show()
+
+    return sinc_func
 
 
 if __name__ == "__main__":
@@ -17,14 +93,18 @@ if __name__ == "__main__":
 
     if verbose:
         print("Raw and Processed Verisense PPG Visualization Tool v0.00.001")
-    print('RAW Files Location (use fwd slashes):')
-    raw_data_folder = input("Folder: ")
+
+    if "raw_data_folder" not in globals():
+        print('RAW Files Location (use fwd slashes):')
+        raw_data_folder = input("Folder: ")
     if raw_data_folder[-1] != "/":
         raw_data_folder = raw_data_folder + "/"
-    print('PROCESSED Files Location (use fwd slashes):')
-    processed_data_folder = input("Folder: ")
+    if "processed_data_folder" not in globals():
+        print('PROCESSED Files Location (use fwd slashes):')
+        processed_data_folder = input("Folder: ")
     if processed_data_folder[-1] != "/":
         processed_data_folder = processed_data_folder + "/"
+
     raw_files_list = os.listdir(raw_data_folder)
     raw_files_list = [x for x in raw_files_list if x[14:17] == 'PPG']
     if not raw_files_list:
@@ -37,6 +117,9 @@ if __name__ == "__main__":
     hr_coverage = []
     hr_mean = []
 
+    if apply_lpf:
+        sinc_func = create_lp_filter()
+
     for i_pg in np.arange(num_pgs):
         fig1=plt.figure(figsize=(10,10))
         for i in np.arange(4):
@@ -48,18 +131,40 @@ if __name__ == "__main__":
             file_num = x[22:27]
             processed_file_name = file_dt + '_PPGtoHR_' + file_num + '.csv'
             if os.path.isfile(processed_data_folder + processed_file_name):
-                df_hr = pd.read_csv(processed_data_folder+processed_file_name,skiprows=12,names=['UNIX_ms','HR_bpm','IBI_ms'])
-                df_hr['TimeStamp'] = [datetime.fromtimestamp(x/1000) for x in df_hr.UNIX_ms]
-                df_raw = pd.read_csv(raw_data_folder+x,skiprows=14,names=['PPG_Red','PPG_IR','PPG_Green','PPG_Blue'])
+                df_hr = pd.read_csv(processed_data_folder+processed_file_name,skiprows=header_size,names=['UNIX_ms','HR_bpm','IBI_ms'])
+                df_hr['TimeStamp'] = [datetime.utcfromtimestamp(x/1000) for x in df_hr.UNIX_ms]
+                df_raw = pd.read_csv(raw_data_folder+x,skiprows=[0,1,2,3,4,5,6,7,8,10])
+
+                ppg_max = 0
+                ppg_min = 0
+
+                # If LPF enabled, skip 10 seconds for filter settling time. Else, skip two FIFO buffers to allow time for proximity detection in the FW.
+                samples_to_skip = (15 * sampling_rate) if apply_lpf else (2*17)
+                samples_to_skip_end = samples_to_skip+(45*sampling_rate)
+
+                for col_name, ppg_ch in df_raw.items():
+                    # Applying the filter h to a signal s
+                    if apply_lpf:
+                        ppg_ch = pd.Series(np.convolve(ppg_ch, sinc_func))
+
+                    ppg_ch_sliced = ppg_ch.iloc[samples_to_skip:samples_to_skip_end]
+                    # ppg_ch_sliced = ppg_ch.iloc[samples_to_skip:]
+
+                    # Subtract the avg from each signal
+                    if remove_avg:
+                        ppg_ch = ppg_ch - ppg_ch_sliced.mean()
+
+                    ppg_max = max(ppg_max, ppg_ch.iloc[samples_to_skip:samples_to_skip_end].max())
+                    ppg_min = min(ppg_min, ppg_ch.iloc[samples_to_skip:samples_to_skip_end].min())
+
+                    df_raw[col_name] = ppg_ch
+
+                # print("max = ", ppg_max, ", Min = ", ppg_min)
+
                 df = pd.concat([df_hr, df_raw],axis=1)
                 # plot
                 ax1 = fig1.add_subplot(4,1,i+1)
-                #ppg_max = df.PPG[1:len(df.PPG)].max()
-                max_list = [df.PPG_Red.max(), df.PPG_Blue.max(), df.PPG_IR.max(), df.PPG_Green.max()]
-                ppg_max = max(max_list)
-                #ppg_min = df.PPG[1:len(df.PPG)].min()
-                min_list = [df.PPG_Red.min(), df.PPG_Blue.min(), df.PPG_IR.min(), df.PPG_Green.min()]
-                ppg_min = min(min_list)
+
                 the_year = df.TimeStamp[1].year
                 the_month = df.TimeStamp[1].month
                 the_day = df.TimeStamp[1].day
@@ -67,10 +172,10 @@ if __name__ == "__main__":
                 ax1.grid()
                 ax1.set_ylabel('PPG-raw')
                 #ax1.plot(df.TimeStamp,df.PPG,label='PPG-raw')
-                ax1.plot(df.TimeStamp,df.PPG_Red,label='PPG-Red',color='red')
-                ax1.plot(df.TimeStamp,df.PPG_IR,label='PPG-IR',color='purple')
-                ax1.plot(df.TimeStamp,df.PPG_Green,label='PPG-Green',color='green')
-                ax1.plot(df.TimeStamp,df.PPG_Blue,label='PPG-Blue',color='blue')
+
+                for col_name, ppg_ch in df_raw.items():
+                    ax1.plot(df.TimeStamp, ppg_ch, label=col_name, color=ch_colour_ref[col_name])
+
                 ax1.set_ylim(ppg_min-0.01,ppg_max+0.01)
                 ax1.legend(loc=2)
                 ax2 = ax1.twinx()
@@ -96,6 +201,9 @@ if __name__ == "__main__":
                     mean_hr = df_hr.HR_bpm.mean()
                     hr_mean.append(mean_hr)
                     ax1.text(x_lims[0]+(2*x_quarter),y_lev,'Mean HR [bpm]: '+str(round(mean_hr,2)),fontweight='bold')
+
+				# Uncomment for quicker debugging of graphs
+                # plt.show()
 
 
             else:
