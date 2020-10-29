@@ -1,4 +1,4 @@
-findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
+verisense_count_steps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
   # by Matthew R Patterson, mpatterson@shimmersensing.com
   ## Find peaks of RMS acceleration signal according to Gu et al, 2017 method
   # This method is based off finding peaks in the summed and squared acceleration signal
@@ -7,6 +7,7 @@ findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
   # in free living data. 
   #
   # returns sample location of each step
+  browser()
   fs = 15 # temporary for now, this is manually set
   acc <- sqrt(input_data[,1]^2 + input_data[,2]^2 + input_data[,3]^2)
 
@@ -57,22 +58,27 @@ findsteps <- function(input_data=runif(500,min=-1.5,max=1.5), coeffs=c(0,0,0)) {
   peak_info <- peak_info[peak_info[,2] > mag_thres,]
   num_peaks <- length(peak_info[,1])
   
-  # Calculate Features (periodicity, similarity, continuity)
-  peak_info[1:(num_peaks-1),3] <- diff(peak_info[,1]) # calculate periodicity
-  peak_info <- peak_info[peak_info[,3] > period_min,] # filter peaks based on period_min
-  peak_info <- peak_info[peak_info[,3] < period_max,]   # filter peaks based on period_max
+  no_steps = FALSE
+  if (num_peaks > 2) {
+    # Calculate Features (periodicity, similarity, continuity)
+    peak_info[1:(num_peaks-1),3] <- diff(peak_info[,1]) # calculate periodicity
+    peak_info <- peak_info[peak_info[,3] > period_min,] # filter peaks based on period_min
+    peak_info <- peak_info[peak_info[,3] < period_max,]   # filter peaks based on period_max 
+  } else {
+    no_steps = TRUE
+  }
   
-  # calculate similarity
-  num_peaks <- length(peak_info[,1])
-  peak_info[1:(num_peaks-2),4] <- -abs(diff(peak_info[,2],2)) # calculate similarity
-  peak_info <- peak_info[peak_info[,4] > sim_thres,]  # filter based on sim_thres
-  peak_info <- peak_info[is.na(peak_info[,1])!=TRUE,] # previous statement can result in an NA in col-1
-  
-  if (length(peak_info)==0) {
+  if ( length(peak_info)==0 || length(peak_info) == sum(is.na(peak_info)) || no_steps == TRUE) {
     # no steps found
     num_seconds = round(length(acc) / fs)
     steps_per_sec = rep(0,num_seconds)
   } else {
+    # calculate similarity
+    num_peaks <- length(peak_info[,1])
+    peak_info[1:(num_peaks-2),4] <- -abs(diff(peak_info[,2],2)) # calculate similarity
+    peak_info <- peak_info[peak_info[,4] > sim_thres,]  # filter based on sim_thres
+    peak_info <- peak_info[is.na(peak_info[,1])!=TRUE,] # previous statement can result in an NA in col-1
+    
     # calculate continuity
     end_for <- length(peak_info[,3])-1
     for (i in cont_thres:end_for) {

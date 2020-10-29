@@ -1,2 +1,4 @@
 /PPGtoHR_visualization/Output/
 /PPGtoHR_visualization/Verisense_Trial_Details.py
+.ipynb_checkpoints
+__pycache__
