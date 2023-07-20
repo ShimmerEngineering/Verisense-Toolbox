@@ -10,7 +10,6 @@ To run the Verisense step count algorithm with GGIR you must:
 3. Open R-studio and Source all GGIR functions as normal
 4. Source *myscript.R*
 5. Add 'myfun = myfun' as a line to your entry function to GGIR
-6. Ensure that do.parallel is set to False in the GGIR entry function
-7. Run GGIR and step count per day will be added to part2_daysummary.csv
+6. Run GGIR and step count per day will be added to part2_daysummary.csv
 
 Further details on using external functions with GGIR can be found [here](https://cran.r-project.org/web/packages/GGIR/vignettes/ExternalFunction.pdf).
